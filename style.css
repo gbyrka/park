@@ -30,3 +30,25 @@ kbd { display: inline-grid; min-width: 24px; height: 24px; margin-right: 4px; pl
 .history ol { max-height: 180px; overflow: auto; line-height: 1.8; }
 #storage-status { color: #fbbf24; font-size: 12px; }
 @media (max-width: 480px) { header { flex-wrap: wrap; gap: 18px; } .scoreboard { flex: 1; } .scoreboard div { flex: 1; } }
+
+canvas { aspect-ratio: auto; }
+.overlay { overflow-y: auto; align-items: start; }
+.card { margin: auto; }
+.options { text-align: left; margin: 16px 0 22px; }
+.options label { display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin: 14px 0 7px; }
+.options select { width: 100%; padding: 12px; background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 10px; font: inherit; }
+.colour-row { display: flex; gap: 12px; align-items: center; font-size: 12px; color: #94a3b8; }
+input[type=color] { width: 62px; height: 40px; padding: 3px; border: 1px solid #475569; border-radius: 8px; background: #1e293b; cursor: pointer; flex-shrink: 0; }
+#mode-help { color: #a7f3d0; font-size: 12px; line-height: 1.5; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 12px; font-size: 12px; color: #94a3b8; }
+.toolbar button { padding: 8px 12px; background: #263449; color: #e2e8f0; box-shadow: none; font-size: 12px; }
+.game-shell:has(.overlay:not(.hidden)) { min-height: 600px; }
+
+/* Preserve the original logo artwork; adapt its display to the dark theme. */
+header { align-items: center; gap: 24px; }
+.brand-logo { display: block; position: relative; width: 190px; height: 96px; overflow: hidden; border-radius: 6px; transition: opacity .18s ease; }
+.brand-logo img { position: absolute; width: 244px; height: auto; max-width: none; left: -30px; top: -16px; filter: invert(1); mix-blend-mode: screen; }
+.brand-logo:hover { opacity: .8; }
+.brand-logo:focus-visible { outline: 2px solid #34d399; outline-offset: 5px; }
+@media (max-width: 620px) { header { flex-wrap: wrap; gap: 16px; } .brand-logo { width: 158px; height: 80px; } .brand-logo img { width: 203px; left: -25px; top: -13px; } }
+@media (prefers-reduced-motion: reduce) { .brand-logo { transition: none; } }
