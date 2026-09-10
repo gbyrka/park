@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>Park — gra parkingowa</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">GRA PARKINGOWA</p>
+        <h1>Park<span>.</span></h1>
+      </div>
+      <div class="scoreboard" aria-live="polite">
+        <div><span>PUNKTY</span><strong id="score">0</strong></div>
+        <div><span>CZAS</span><strong id="time">60</strong></div>
+      </div>
+    </header>
+
+    <section class="game-shell">
+      <canvas id="game" width="960" height="600" aria-label="Parking widziany z góry"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <p class="eyebrow">GOTOWY?</p>
+          <h2 id="overlay-title">Zaparkuj jak najwięcej razy</h2>
+          <p id="overlay-copy">Wjedź całym autem na zielone miejsce i zatrzymaj się. Każde poprawne parkowanie to punkt i nowy cel.</p>
+          <button id="start">Rozpocznij grę</button>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p><kbd>↑</kbd><kbd>↓</kbd> gaz / hamulec</p>
+      <p><kbd>←</kbd><kbd>→</kbd> skręt</p>
+      <p><kbd>R</kbd> restart</p>
+    </footer>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
