@@ -42,7 +42,7 @@ input[type=color] { width: 62px; height: 40px; padding: 3px; border: 1px solid #
 #mode-help { color: #a7f3d0; font-size: 12px; line-height: 1.5; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 12px; font-size: 12px; color: #94a3b8; }
 .toolbar button { padding: 8px 12px; background: #263449; color: #e2e8f0; box-shadow: none; font-size: 12px; }
-.game-shell:has(.overlay:not(.hidden)) { min-height: 600px; }
+
 
 /* Preserve the original logo artwork; adapt its display to the dark theme. */
 header { align-items: center; gap: 24px; }
@@ -52,3 +52,29 @@ header { align-items: center; gap: 24px; }
 .brand-logo:focus-visible { outline: 2px solid #34d399; outline-offset: 5px; }
 @media (max-width: 620px) { header { flex-wrap: wrap; gap: 16px; } .brand-logo { width: 158px; height: 80px; } .brand-logo img { width: 203px; left: -25px; top: -13px; } }
 @media (prefers-reduced-motion: reduce) { .brand-logo { transition: none; } }
+
+/* Reserve space for the HUD and controls; fit the full board in the rest. */
+.app { height: 100vh; height: 100dvh; padding: 12px 0; display: grid; grid-template-rows: auto minmax(0,1fr) auto auto auto auto; gap: 8px; }
+header { grid-row: 1; margin: 0; }
+.game-shell { grid-row: 2; min-height: 0; min-width: 0; }
+canvas { width: 100%; height: 100%; object-fit: contain; aspect-ratio: auto; }
+.toolbar { grid-row: 3; margin: 0; }
+#storage-status { grid-row: 4; margin: 0; }
+#storage-status:empty { display: none; }
+.history { grid-row: 5; margin: 0; padding: 8px 14px; }
+.history ol { max-height: min(110px,15vh); margin: 6px 0; }
+footer { grid-row: 6; padding: 4px; flex-wrap: wrap; }
+.overlay { padding: 12px; }
+.card { padding: 22px; }
+.brand-logo { width: 142px; height: 72px; }
+.brand-logo img { width: 183px; left: -22.5px; top: -12px; }
+@media (max-height: 650px) {
+  .app { padding: 6px 0; gap: 5px; }
+  .brand-logo { width: 95px; height: 48px; }
+  .brand-logo img { width: 122px; left: -15px; top: -8px; }
+  header { gap: 8px; }
+  .eyebrow { margin-bottom: 3px; font-size: 9px; }
+  .scoreboard div { padding: 5px 8px; min-width: 60px; }
+  .scoreboard strong { font-size: 20px; }
+  footer { font-size: 10px; gap: 12px; padding: 0; }
+}

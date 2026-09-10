@@ -81,7 +81,7 @@ function resetCar(){
 }
 function configure() {
   MODE=modeSelect.value; carColor=colorInput.value;
-  H=isTrailer()?760:600; canvas.height=H;
+  H=isTrailer()?680:600; canvas.height=H;
   const depth=isTrailer()?198:128;
   lots=[52,H-52-depth].flatMap(y=>[150,240,330,556,646,736].map(x=>({x,y,w:74,h:depth,a:0})));
   obstacles=[{x:0,y:0,w:W,h:24},{x:0,y:H-24,w:W,h:24},{x:0,y:0,w:24,h:H},{x:W-24,y:0,w:24,h:H},
@@ -167,8 +167,20 @@ function finish(){
 }
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
 function drawLot(l,i){ ctx.save(); const active=i===target; ctx.strokeStyle=active?'#34d399':'#dbeafe77'; ctx.lineWidth=active?5:3; ctx.setLineDash(active?[10,7]:[]); roundRect(l.x,l.y,l.w,l.h,6); ctx.stroke(); if(active){ ctx.fillStyle='#10b98126'; ctx.fill(); ctx.fillStyle='#a7f3d0'; ctx.font='800 18px system-ui'; ctx.textAlign='center'; ctx.fillText('P',l.x+l.w/2,l.y+l.h/2+6); } ctx.restore(); }
+function isBraking() {
+  return running && ((car.speed > 0.5 && keys.has('ArrowDown')) || (car.speed < -0.5 && keys.has('ArrowUp')));
+}
+function drawBrakeLights(width, length, active) {
+  ctx.save();
+  ctx.fillStyle=active?'#ff4545':'#802b35';
+  ctx.shadowColor='#ff2020';ctx.shadowBlur=active?14:0;
+  const y=length/2-6;
+  ctx.fillRect(-width/2+4,y,8,4);
+  ctx.fillRect(width/2-12,y,8,4);
+  ctx.restore();
+}
 function drawCar(c,color='#fbbf24'){
-  ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.a); ctx.shadowColor='#0009'; ctx.shadowBlur=12; ctx.fillStyle=color; roundRect(-c.w/2,-c.h/2,c.w,c.h,9); ctx.fill(); ctx.shadowBlur=0; ctx.fillStyle='#172033'; roundRect(-c.w/2+5,-c.h/2+11,c.w-10,18,5); ctx.fill(); roundRect(-c.w/2+5,c.h/2-25,c.w-10,14,4); ctx.fill(); ctx.fillStyle='#fff8'; ctx.fillRect(-c.w/2+5,-c.h/2+4,7,3); ctx.fillRect(c.w/2-12,-c.h/2+4,7,3); ctx.restore();
+  ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.a); ctx.shadowColor='#0009'; ctx.shadowBlur=12; ctx.fillStyle=color; roundRect(-c.w/2,-c.h/2,c.w,c.h,9); ctx.fill(); ctx.shadowBlur=0; ctx.fillStyle='#172033'; roundRect(-c.w/2+5,-c.h/2+11,c.w-10,18,5); ctx.fill(); roundRect(-c.w/2+5,c.h/2-25,c.w-10,14,4); ctx.fill(); ctx.fillStyle='#fff8'; ctx.fillRect(-c.w/2+5,-c.h/2+4,7,3); ctx.fillRect(c.w/2-12,-c.h/2+4,7,3); drawBrakeLights(c.w,c.h,c===car && isBraking()); ctx.restore();
 }
 function drawTrailer(){
   const h=hitch();
@@ -179,7 +191,7 @@ function drawTrailer(){
   ctx.shadowColor='#0008';ctx.shadowBlur=10;ctx.fillStyle='#fff';
   roundRect(-16,-29,32,58,5);ctx.fill();ctx.shadowBlur=0;
   ctx.strokeStyle='#cbd5e1';ctx.lineWidth=2;ctx.strokeRect(-11,-23,22,44);
-  ctx.fillStyle='#f87171';ctx.fillRect(-12,25,7,3);ctx.fillRect(5,25,7,3);
+  drawBrakeLights(trailer.w,trailer.h,isBraking());
   ctx.restore();
 }
 function draw(){

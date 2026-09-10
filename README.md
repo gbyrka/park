@@ -36,3 +36,9 @@ Then open http://localhost:8000. You can also host the files on GitHub Pages.
 ## Branding
 
 The MoD-IT logo links to Grzegorz Byrka on LinkedIn. Keep the `assets` folder when uploading the game. The original artwork is displayed with a CSS colour inversion and blending to match the dark theme.
+
+## Window fit and brake lights
+
+The board scales proportionally into the space left below the header and above the controls, including after resizing the window. The trailer map is 960 × 680 with a narrower central aisle; parking bays remain 198 units long. The setup menu scrolls internally in short windows.
+
+Both the car and trailer show bright red brake lights while pressing Down during forward travel or Up while reversing. Lights dim once stopped or accelerating in the new direction.
