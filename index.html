@@ -1,43 +1,47 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#111827">
-  <title>Park — gra parkingowa</title>
+  <title>Park — parking game</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
     <header>
       <div>
-        <p class="eyebrow">GRA PARKINGOWA</p>
+        <p class="eyebrow">PARKING GAME</p>
         <h1>Park<span>.</span></h1>
       </div>
       <div class="scoreboard" aria-live="polite">
-        <div><span>PUNKTY</span><strong id="score">0</strong></div>
-        <div><span>CZAS</span><strong id="time">60</strong></div>
+        <div><span>SCORE</span><strong id="score">0</strong></div>
+        <div><span>BEST SCORE</span><strong id="best">0</strong></div>
+        <div><span>TIME</span><strong id="time">60</strong></div>
       </div>
     </header>
 
     <section class="game-shell">
-      <canvas id="game" width="960" height="600" aria-label="Parking widziany z góry"></canvas>
+      <canvas id="game" width="960" height="600" aria-label="Top-down parking lot"></canvas>
       <div class="overlay" id="overlay">
         <div class="card">
-          <p class="eyebrow">GOTOWY?</p>
-          <h2 id="overlay-title">Zaparkuj jak najwięcej razy</h2>
-          <p id="overlay-copy">Wjedź całym autem na zielone miejsce i zatrzymaj się. Każde poprawne parkowanie to punkt i nowy cel.</p>
-          <button id="start">Rozpocznij grę</button>
+          <p class="eyebrow">READY?</p>
+          <h2 id="overlay-title">How many times can you park?</h2>
+          <p id="overlay-copy">Move your entire car into the green bay and stop. Each successful park earns a point and a new target.</p>
+          <button id="start">Start game</button>
         </div>
       </div>
     </section>
 
+    <p id="storage-status" role="status"></p>
+    <details class="history"><summary>Score history · Classic (60 seconds)</summary><ol id="history"></ol></details>
     <footer>
-      <p><kbd>↑</kbd><kbd>↓</kbd> gaz / hamulec</p>
-      <p><kbd>←</kbd><kbd>→</kbd> skręt</p>
+      <p><kbd>↑</kbd><kbd>↓</kbd> accelerate / reverse</p>
+      <p><kbd>←</kbd><kbd>→</kbd> steer</p>
       <p><kbd>R</kbd> restart</p>
     </footer>
   </main>
   <script src="game.js"></script>
 </body>
 </html>
+

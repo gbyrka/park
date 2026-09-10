@@ -23,3 +23,10 @@ footer { display: flex; justify-content: center; gap: 28px; padding: 16px; color
 footer p { margin: 0; }
 kbd { display: inline-grid; min-width: 24px; height: 24px; margin-right: 4px; place-items: center; border: 1px solid #475569; border-bottom-width: 3px; border-radius: 6px; color: #e2e8f0; background: #1e293b; font-family: inherit; font-weight: 750; }
 @media (max-width: 620px) { .app { width: calc(100% - 16px); padding-top: 18px; } header { align-items: center; } .scoreboard div { min-width: 68px; padding: 8px; } footer { gap: 10px; flex-wrap: wrap; } .card { padding: 24px; } }
+
+
+.history { margin-top: 18px; padding: 14px 18px; background: #111827; border: 1px solid #334155; border-radius: 14px; color: #b8c2d1; }
+.history summary { cursor: pointer; }
+.history ol { max-height: 180px; overflow: auto; line-height: 1.8; }
+#storage-status { color: #fbbf24; font-size: 12px; }
+@media (max-width: 480px) { header { flex-wrap: wrap; gap: 18px; } .scoreboard { flex: 1; } .scoreboard div { flex: 1; } }
