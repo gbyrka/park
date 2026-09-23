@@ -1,210 +1,313 @@
-const canvas = document.querySelector('#game');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.querySelector('#score');
-const timeEl = document.querySelector('#time');
-const overlay = document.querySelector('#overlay');
-const titleEl = document.querySelector('#overlay-title');
-const copyEl = document.querySelector('#overlay-copy');
-const startBtn = document.querySelector('#start');
+'use strict';
 
-let MODE = 'classic-60s';
-let carColor = '#fbbf24';
-let trailer = null;
-const modeSelect = document.querySelector('#mode');
-const colorInput = document.querySelector('#color');
-const isTrailer = () => MODE === 'trailer-180s';
-const duration = () => isTrailer() ? 180 : 60;
+const physics = ParkPhysics;
+const $ = id => document.getElementById(id);
+const canvas = $('game');
+const scene = new ParkScene(canvas);
+const keys = new Set();
 const COOKIE = 'park_scores_v1';
+const HOLD_TIME = .75;
+const modeNames = { 'classic-60s': 'Classic', 'trailer-180s': 'Car + trailer' };
+const ui = Object.fromEntries(['score', 'best', 'time', 'clock', 'time-fill', 'speed', 'gear', 'brake-indicator', 'assist-text', 'parking-fill', 'parking-progress', 'target-label', 'mission-text'].map(id => [id, $(id)]));
+const state = {
+  phase: 'menu', mode: 'classic-60s', color: '#f1ba58', world: null, rig: null,
+  target: -1, targetBag: [], score: 0, remaining: 60, parkedHold: 0,
+  collisions: 0, legCollisions: 0, cleanParks: 0, bestPark: null, legStarted: 60,
+  collisionCooldown: 0, collisionFlash: 0, celebration: null,
+};
 let records = readRecords();
-let frameId = null;
+let previousTime = 0, accumulator = 0, frameId = null, toastTimer = null;
+
 function readRecords() {
-  const empty = {version: 1, bestByMode: {}, history: []};
+  const empty = { version: 1, bestByMode: {}, history: [] };
   try {
     const value = document.cookie.split('; ').find(item => item.startsWith(COOKIE + '='));
     if (!value) return empty;
     const data = JSON.parse(decodeURIComponent(value.slice(COOKIE.length + 1)));
     if (data.version !== 1 || !Array.isArray(data.history) || !data.bestByMode || typeof data.bestByMode !== 'object') return empty;
     const validScore = n => Number.isSafeInteger(n) && n >= 0;
-    empty.history = data.history.filter(r => r && typeof r.mode === 'string' && r.mode.length <= 40 && validScore(r.score) && Number.isFinite(r.at) && !isNaN(new Date(r.at).getTime())).slice(-20);
+    empty.history = data.history.filter(r => r && typeof r.mode === 'string' && /^[a-z0-9-]{1,40}$/.test(r.mode) && validScore(r.score) && Number.isFinite(r.at) && !isNaN(new Date(r.at).getTime()))
+      .slice(-20).map(({ mode, score, at }) => ({ mode, score, at }));
     for (const [mode, best] of Object.entries(data.bestByMode)) {
-      if (/^[a-z0-9-]{1,40}$/.test(mode) && validScore(best)) Object.defineProperty(empty.bestByMode, mode, {value: best, enumerable: true, writable: true, configurable: true});
+      if (/^[a-z0-9-]{1,40}$/.test(mode) && validScore(best)) Object.defineProperty(empty.bestByMode, mode, { value: best, enumerable: true, writable: true, configurable: true });
     }
     return empty;
   } catch { return empty; }
 }
+
 function renderRecords() {
-  document.querySelector('#best').textContent = records.bestByMode[MODE] || 0;
-  const list = document.querySelector('#history');
+  ui.best.textContent = String(records.bestByMode[state.mode] || 0).padStart(2, '0');
+  const list = $('history');
   list.replaceChildren();
   for (const record of records.history.slice().reverse()) {
     const item = document.createElement('li');
-    item.textContent = `${record.score} points · ${record.mode} · ${new Date(record.at).toLocaleString('en-GB')}`;
+    item.textContent = `${record.score} ${record.score === 1 ? 'park' : 'parks'} · ${modeNames[record.mode] || record.mode} · ${new Date(record.at).toLocaleString('en-GB')}`;
     list.append(item);
   }
-  if (!records.history.length) list.textContent = 'No completed rounds yet.';
+  if (!records.history.length) {
+    const item = document.createElement('li'); item.textContent = 'A fresh start. Your completed rounds will appear here.'; list.append(item);
+  }
 }
+
 function saveResult() {
-  records.history.push({mode: MODE, score, at: Date.now()});
+  records.history.push({ mode: state.mode, score: state.score, at: Date.now() });
   records.history = records.history.slice(-20);
-  records.bestByMode[MODE] = Math.max(records.bestByMode[MODE] || 0, score);
+  records.bestByMode[state.mode] = Math.max(records.bestByMode[state.mode] || 0, state.score);
   try {
     const encoded = encodeURIComponent(JSON.stringify(records));
     if (encoded.length > 3800) throw new Error('Cookie too large');
     document.cookie = `${COOKIE}=${encoded}; Max-Age=31536000; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
     if (!document.cookie.split('; ').includes(`${COOKIE}=${encoded}`)) throw new Error('Cookies unavailable');
-    document.querySelector('#storage-status').textContent = '';
+    $('storage-status').textContent = '';
   } catch {
-    document.querySelector('#storage-status').textContent = 'Scores are available for this session only. Enable cookies and open the game over HTTP or HTTPS to save them.';
+    $('storage-status').textContent = 'Scores are kept for this session only. Allow cookies and use HTTP or HTTPS to save your garage log.';
   }
   renderRecords();
 }
 
-const W = canvas.width;
-let H = canvas.height;
-const keys = new Set();
-let lots = [
-  {x:150,y:52,w:74,h:128,a:0},{x:240,y:52,w:74,h:128,a:0},{x:330,y:52,w:74,h:128,a:0},{x:556,y:52,w:74,h:128,a:0},{x:646,y:52,w:74,h:128,a:0},{x:736,y:52,w:74,h:128,a:0},
-  {x:150,y:420,w:74,h:128,a:0},{x:240,y:420,w:74,h:128,a:0},{x:330,y:420,w:74,h:128,a:0},{x:556,y:420,w:74,h:128,a:0},{x:646,y:420,w:74,h:128,a:0},{x:736,y:420,w:74,h:128,a:0}
-];
-let obstacles = [
-  {x:0,y:0,w:960,h:24},{x:0,y:576,w:960,h:24},{x:0,y:0,w:24,h:600},{x:936,y:0,w:24,h:600},
-  {x:74,y:42,w:50,h:148},{x:836,y:42,w:50,h:148},{x:74,y:410,w:50,h:148},{x:836,y:410,w:50,h:148}
-];
-const parked = [1,4,7,10];
-let car, target, score, seconds, running = false, last = 0, deadline = 0, parkedHold = 0;
-
-function hitch(c=car) { return {x:c.x-Math.sin(c.a)*40,y:c.y+Math.cos(c.a)*40}; }
-function resetCar(){
-  car={x:480,y:H/2,a:-Math.PI/2,speed:0,w:34,h:64};
-  const h=hitch();
-  trailer=isTrailer()?{x:h.x-Math.sin(car.a)*54,y:h.y+Math.cos(car.a)*54,a:car.a,w:32,h:58}:null;
+function savePreferences() {
+  try { localStorage.setItem('park_preferences_v1', JSON.stringify({ color: $('color').value, mode: $('mode').value })); } catch { /* Preferences are optional. */ }
 }
-function configure() {
-  MODE=modeSelect.value; carColor=colorInput.value;
-  H=isTrailer()?680:600; canvas.height=H;
-  const depth=isTrailer()?198:128;
-  lots=[52,H-52-depth].flatMap(y=>[150,240,330,556,646,736].map(x=>({x,y,w:74,h:depth,a:0})));
-  obstacles=[{x:0,y:0,w:W,h:24},{x:0,y:H-24,w:W,h:24},{x:0,y:0,w:24,h:H},{x:W-24,y:0,w:24,h:H},
-    ...[42,H-62-depth].flatMap(y=>[74,836].map(x=>({x,y,w:50,h:depth+20})))];
-  const label=isTrailer()?'Car + trailer · 3 minutes':'Classic · 1 minute';
-  document.querySelector('#mode-label').textContent=label;
-  document.querySelector('#mode-help').textContent=isTrailer()?'Park BOTH car and trailer inside the green bay. Reverse slowly: the trailer swings in the opposite direction.':'Park your car inside the green bay and stop.';
-  timeEl.textContent=duration(); renderRecords(); resetCar(); newTarget(); draw();
-}
-function openMenu() {
-  running=false;cancelAnimationFrame(frameId);keys.clear();
-  titleEl.textContent='Choose your ride';
-  copyEl.textContent='Choose a colour and mode. Starting again discards your unfinished round.';
-  startBtn.textContent='Start game';overlay.classList.remove('hidden');
-}
-modeSelect.addEventListener('change',configure);
-colorInput.addEventListener('input',()=>{carColor=colorInput.value;draw();});
-document.querySelector('#menu').addEventListener('click',openMenu);
 
-function newTarget(){ const available=lots.map((_,i)=>i).filter(i=>!parked.includes(i)&&i!==target); target=available[Math.floor(Math.random()*available.length)]; parkedHold=0; }
-function start(){ startBtn.blur(); cancelAnimationFrame(frameId); keys.clear(); configure(); score=0; seconds=duration(); scoreEl.textContent=score; timeEl.textContent=seconds; resetCar(); newTarget(); deadline=performance.now()+duration()*1000; running=true; overlay.classList.add('hidden'); last=performance.now(); frameId = requestAnimationFrame(loop); }
+function roundDuration() { return state.mode === 'trailer-180s' ? 180 : 60; }
 
-addEventListener('keydown',e=>{ if(['INPUT','SELECT','BUTTON'].includes(e.target?.tagName)) return; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault(); keys.add(e.key); if(e.key==='Escape') openMenu(); if(e.key.toLowerCase()==='r' && !e.repeat) start(); });
-addEventListener('keyup',e=>keys.delete(e.key)); startBtn.addEventListener('click',start);
-addEventListener('blur', () => keys.clear());
-
-function carCorners(c=car){ const ca=Math.cos(c.a),sa=Math.sin(c.a), pts=[]; for(const [x,y] of [[-c.w/2,-c.h/2],[c.w/2,-c.h/2],[c.w/2,c.h/2],[-c.w/2,c.h/2]]) pts.push({x:c.x+x*ca-y*sa,y:c.y+x*sa+y*ca}); return pts; }
-// Separating-axis test catches rotated edge intersections and containment.
-function polygonsOverlap(a, b) {
-  for (const polygon of [a, b]) {
-    for (let i = 0; i < polygon.length; i++) {
-      const p = polygon[i], q = polygon[(i + 1) % polygon.length];
-      const axis = {x: -(q.y - p.y), y: q.x - p.x};
-      const project = points => points.map(v => v.x * axis.x + v.y * axis.y);
-      const pa = project(a), pb = project(b);
-      if (Math.max(...pa) <= Math.min(...pb) || Math.max(...pb) <= Math.min(...pa)) return false;
+function chooseTarget() {
+  if (!state.targetBag.length) {
+    state.targetBag = state.world.lots.map((_, i) => i).filter(i => !state.world.occupied.includes(i));
+    for (let i = state.targetBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [state.targetBag[i], state.targetBag[j]] = [state.targetBag[j], state.targetBag[i]];
     }
+    if (state.targetBag[0] === state.target) [state.targetBag[0], state.targetBag[1]] = [state.targetBag[1], state.targetBag[0]];
   }
-  return true;
+  state.target = state.targetBag.shift();
+  state.parkedHold = 0;
+  state.legCollisions = 0;
+  state.legStarted = state.remaining;
+  ui['target-label'].textContent = state.world.lots[state.target].label;
 }
-function hitRect(rect) {
-  return polygonsOverlap(carCorners(), carCorners({x:rect.x+rect.w/2,y:rect.y+rect.h/2,w:rect.w,h:rect.h,a:0}));
-}
-function parkedCar(i) {
-  const l = lots[i];
-  return {x:l.x+l.w/2,y:l.y+l.h/2,a:0,w:34,h:64};
-}
-function move(dt){
-  const old={...car}, oldTrailer=trailer?{...trailer}:null;
-  if(keys.has('ArrowUp')) car.speed+=150*dt;
-  if(keys.has('ArrowDown')) car.speed-=125*dt;
-  car.speed*=Math.pow(.985,dt*60); car.speed=Math.max(-75,Math.min(150,car.speed));
-  const steer=(keys.has('ArrowLeft')?-1:0)+(keys.has('ArrowRight')?1:0);
-  if(steer&&Math.abs(car.speed)>3) car.a+=steer*2.05*dt*(car.speed/110);
-  car.x+=Math.sin(car.a)*car.speed*dt; car.y-=Math.cos(car.a)*car.speed*dt;
-  if(trailer){
-    const h=hitch();
-    // Project the old axle onto the fixed-length drawbar. Forward motion aligns
-    // the trailer; reversing naturally amplifies articulation.
-    trailer.a=Math.atan2(h.x-trailer.x,-(h.y-trailer.y));
-    trailer.x=h.x-Math.sin(trailer.a)*54;
-    trailer.y=h.y+Math.cos(trailer.a)*54;
-  }
-  const bodies=trailer?[car,trailer]:[car];
-  const blocked=bodies.some(body=>obstacles.some(r=>polygonsOverlap(carCorners(body),carCorners({x:r.x+r.w/2,y:r.y+r.h/2,w:r.w,h:r.h,a:0}))) || parked.some(i=>polygonsOverlap(carCorners(body),carCorners(parkedCar(i)))));
-  if(blocked || (trailer && polygonsOverlap(carCorners(),carCorners(trailer)))){
-    Object.assign(car,old); if(trailer)Object.assign(trailer,oldTrailer); car.speed=0;
-  }
-}
-function update(dt){
-  if(performance.now()>=deadline){finish();return;}
-  const steps=Math.max(1,Math.ceil(dt*120));
-  for(let i=0;i<steps;i++)move(dt/steps);
-  const lot=lots[target], inside=[...carCorners(),...(trailer?carCorners(trailer):[])].every(p=>p.x>lot.x+5&&p.x<lot.x+lot.w-5&&p.y>lot.y+5&&p.y<lot.y+lot.h-5);
-  if(inside&&Math.abs(car.speed)<8){ parkedHold+=dt; if(parkedHold>.7){ score++; scoreEl.textContent=score; newTarget(); } } else parkedHold=0;
-  seconds=Math.max(0,Math.ceil((deadline-performance.now())/1000)); timeEl.textContent=seconds;
-  if(seconds<=0) finish();
-}
-function finish(){
-  if(!running)return;
-  seconds=0;timeEl.textContent=0;
-  { running=false; saveResult(); titleEl.textContent=`Time up! ${score} ${score===1?'point':'points'}`; copyEl.textContent=score<4?'Try again? Smooth turns and careful positioning make all the difference.':'Great parking! Can you beat your score?'; startBtn.textContent='Play again'; overlay.classList.remove('hidden'); }
-}
-function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
-function drawLot(l,i){ ctx.save(); const active=i===target; ctx.strokeStyle=active?'#34d399':'#dbeafe77'; ctx.lineWidth=active?5:3; ctx.setLineDash(active?[10,7]:[]); roundRect(l.x,l.y,l.w,l.h,6); ctx.stroke(); if(active){ ctx.fillStyle='#10b98126'; ctx.fill(); ctx.fillStyle='#a7f3d0'; ctx.font='800 18px system-ui'; ctx.textAlign='center'; ctx.fillText('P',l.x+l.w/2,l.y+l.h/2+6); } ctx.restore(); }
-function isBraking() {
-  return running && ((car.speed > 0.5 && keys.has('ArrowDown')) || (car.speed < -0.5 && keys.has('ArrowUp')));
-}
-function drawBrakeLights(width, length, active) {
-  ctx.save();
-  ctx.fillStyle=active?'#ff4545':'#802b35';
-  ctx.shadowColor='#ff2020';ctx.shadowBlur=active?14:0;
-  const y=length/2-6;
-  ctx.fillRect(-width/2+4,y,8,4);
-  ctx.fillRect(width/2-12,y,8,4);
-  ctx.restore();
-}
-function drawCar(c,color='#fbbf24'){
-  ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.a); ctx.shadowColor='#0009'; ctx.shadowBlur=12; ctx.fillStyle=color; roundRect(-c.w/2,-c.h/2,c.w,c.h,9); ctx.fill(); ctx.shadowBlur=0; ctx.fillStyle='#172033'; roundRect(-c.w/2+5,-c.h/2+11,c.w-10,18,5); ctx.fill(); roundRect(-c.w/2+5,c.h/2-25,c.w-10,14,4); ctx.fill(); ctx.fillStyle='#fff8'; ctx.fillRect(-c.w/2+5,-c.h/2+4,7,3); ctx.fillRect(c.w/2-12,-c.h/2+4,7,3); drawBrakeLights(c.w,c.h,c===car && isBraking()); ctx.restore();
-}
-function drawTrailer(){
-  const h=hitch();
-  ctx.strokeStyle='#a8b4c5';ctx.lineWidth=5;
-  ctx.beginPath();ctx.moveTo(h.x,h.y);ctx.lineTo(trailer.x,trailer.y);ctx.stroke();
-  ctx.save();ctx.translate(trailer.x,trailer.y);ctx.rotate(trailer.a);
-  ctx.fillStyle='#0b1220';ctx.fillRect(-20,-2,7,18);ctx.fillRect(13,-2,7,18);
-  ctx.shadowColor='#0008';ctx.shadowBlur=10;ctx.fillStyle='#fff';
-  roundRect(-16,-29,32,58,5);ctx.fill();ctx.shadowBlur=0;
-  ctx.strokeStyle='#cbd5e1';ctx.lineWidth=2;ctx.strokeRect(-11,-23,22,44);
-  drawBrakeLights(trailer.w,trailer.h,isBraking());
-  ctx.restore();
-}
-function draw(){
-  ctx.fillStyle='#26313d'; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#ffffff08'; for(let x=0;x<W;x+=48) for(let y=0;y<H;y+=48) ctx.fillRect(x,y,2,2);
-  ctx.fillStyle='#334155'; obstacles.forEach(o=>{roundRect(o.x,o.y,o.w,o.h,8);ctx.fill();});
-  lots.forEach(drawLot); parked.forEach((i,n)=>{ drawCar(parkedCar(i),['#60a5fa','#f472b6','#a78bfa','#fb7185'][n]); });
-  ctx.strokeStyle='#f8fafc28'; ctx.lineWidth=3; ctx.setLineDash([18,18]); ctx.beginPath(); ctx.moveTo(110,H/2); ctx.lineTo(850,H/2); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle='#94a3b8'; ctx.font='700 13px system-ui'; ctx.textAlign='center'; ctx.fillText('ENTRANCE',480,H-16);
-  if(trailer)drawTrailer();
-  drawCar(car,carColor);
-  if(parkedHold>0){ ctx.strokeStyle='#6ee7b7'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(car.x,car.y,46,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,parkedHold/.7)); ctx.stroke(); }
-}
-function loop(now){ if(!running)return; const dt=Math.min(.033,(now-last)/1000); last=now; update(dt); draw(); if(running) frameId = requestAnimationFrame(loop); }
-configure();
 
+function configure() {
+  state.mode = $('mode').value;
+  state.color = $('color').value;
+  const withTrailer = state.mode === 'trailer-180s';
+  state.world = physics.makeWorld(withTrailer);
+  state.rig = physics.makeRig(withTrailer, state.world.height);
+  state.remaining = roundDuration();
+  state.score = 0; state.collisions = 0; state.cleanParks = 0; state.bestPark = null;
+  state.collisionCooldown = 0; state.collisionFlash = 0; state.celebration = null;
+  state.target = -1; state.targetBag = []; accumulator = 0;
+  chooseTarget();
+  $('mode-label').textContent = withTrailer ? 'CAR + TRAILER / 3 MINUTES' : 'CLASSIC / 60 SECONDS';
+  scene.configure(state.world);
+  renderRecords(); updateModeHelp(); updateHUD(); scene.draw(state, performance.now());
+}
+
+function updateModeHelp() {
+  const trailer = $('mode').value === 'trailer-180s';
+  let help = trailer ? 'Park the car AND white trailer. Reverse slowly; small turns work best.' : 'One car. One minute. How many perfect parks?';
+  if (state.phase === 'paused' && $('mode').value !== state.mode) help += ' This mode starts with your next round.';
+  $('mode-help').textContent = help;
+}
+
+function setOverlay(visible) {
+  $('overlay').hidden = !visible;
+  canvas.inert = visible;
+  if (visible) {
+    $('overlay').scrollTop = 0;
+    const button = state.phase === 'paused' ? $('resume') : $('start');
+    button.focus({ preventScroll: true });
+  } else canvas.focus({ preventScroll: true });
+}
+
+function hideToast() { clearTimeout(toastTimer); $('toast').classList.remove('visible'); }
+function toast(message, warning = false) {
+  clearTimeout(toastTimer);
+  $('toast').textContent = message;
+  $('toast').classList.toggle('warning', warning);
+  $('toast').classList.add('visible');
+  toastTimer = setTimeout(hideToast, warning ? 1900 : 2500);
+}
+
+function scheduleFrame() {
+  if (frameId === null && state.phase === 'playing') frameId = requestAnimationFrame(loop);
+}
+
+function start() {
+  keys.clear(); hideToast();
+  state.phase = 'playing';
+  configure(); savePreferences();
+  $('round-summary').hidden = true;
+  setOverlay(false);
+  previousTime = performance.now();
+  $('announcement').textContent = `Round started. Park in bay ${state.world.lots[state.target].label}.`;
+  scheduleFrame();
+}
+
+function pause(reason = 'manual') {
+  if (state.phase !== 'playing') {
+    if ($('overlay').hidden) setOverlay(true);
+    return;
+  }
+  state.phase = 'paused';
+  keys.clear(); state.rig.car.braking = false; accumulator = 0;
+  if (frameId !== null) cancelAnimationFrame(frameId);
+  frameId = null;
+  hideToast();
+  $('overlay-eyebrow').textContent = 'TAKE YOUR TIME. THE CLOCK CAN WAIT.';
+  $('overlay-title').textContent = 'A little breathing room.';
+  $('overlay-copy').textContent = reason === 'focus' ? 'Your drive is paused while you are away. Pick up exactly where you left off.' : 'Your round is paused. Resume your drive, or choose a fresh challenge below.';
+  $('resume').hidden = false;
+  $('start').textContent = 'Start a new round ↗';
+  $('start').classList.add('secondary');
+  $('round-summary').hidden = true;
+  updateModeHelp(); updateHUD(); scene.draw(state, performance.now()); setOverlay(true);
+}
+
+function resume() {
+  if (state.phase !== 'paused') return;
+  $('mode').value = state.mode;
+  keys.clear(); state.phase = 'playing'; accumulator = 0;
+  previousTime = performance.now();
+  setOverlay(false); updateHUD(); scheduleFrame();
+}
+
+function finish() {
+  if (state.phase !== 'playing') return;
+  state.phase = 'finished'; state.remaining = 0; keys.clear(); state.rig.car.braking = false;
+  const record = state.score > (records.bestByMode[state.mode] || 0);
+  saveResult(); hideToast();
+  $('overlay-eyebrow').textContent = record ? 'A NEW PERSONAL BEST. NICELY DONE.' : 'ANOTHER DRIVE IN THE BOOKS.';
+  $('overlay-title').textContent = `${state.score} ${state.score === 1 ? 'perfect park.' : 'perfect parks.'}`;
+  $('overlay-copy').textContent = state.score === 0 ? 'Take it slow on the turns. Get fully inside the green bay, then hold Space to settle into place.' : record ? 'That is your best round in this mode. There is always room for one more.' : 'Smooth steering, a gentle approach, and one well-timed brake. Ready for another drive?';
+  const summary = $('round-summary'); summary.replaceChildren();
+  for (const [value, label] of [[state.cleanParks, 'without a bump'], [state.collisions, 'bumps'], [state.bestPark === null ? '—' : `${state.bestPark.toFixed(1)}s`, 'quickest park']]) {
+    const item = document.createElement('div'), strong = document.createElement('strong');
+    strong.textContent = value; item.append(strong, document.createTextNode(label)); summary.append(item);
+  }
+  summary.hidden = false;
+  $('resume').hidden = true; $('start').classList.remove('secondary'); $('start').textContent = 'Another round ↗';
+  $('announcement').textContent = `Round complete. ${state.score} parks. ${record ? 'New personal best.' : ''}`;
+  updateHUD(); setOverlay(true);
+}
+
+function inputState() {
+  return { up: keys.has('ArrowUp'), down: keys.has('ArrowDown'), left: keys.has('ArrowLeft'), right: keys.has('ArrowRight'), brake: keys.has('Space') };
+}
+
+function update(dt) {
+  state.remaining = Math.max(0, state.remaining - dt);
+  if (state.remaining <= 0) { finish(); return; }
+  state.collisionCooldown = Math.max(0, state.collisionCooldown - dt);
+  state.collisionFlash = Math.max(0, state.collisionFlash - dt * 2);
+  const impact = physics.step(state.rig, inputState(), dt, state.world);
+  if (impact > 15 && state.collisionCooldown === 0) {
+    state.collisions++; state.legCollisions++; state.collisionCooldown = .9; state.collisionFlash = 1;
+    toast('A little bump. Reverse gently and try a wider turn.', true);
+  }
+  const result = physics.parking(state.rig, state.world.lots[state.target]);
+  state.parkedHold = result.ready ? state.parkedHold + dt : 0;
+  if (state.parkedHold >= HOLD_TIME) {
+    state.score++;
+    if (state.legCollisions === 0) state.cleanParks++;
+    const elapsed = state.legStarted - state.remaining;
+    state.bestPark = state.bestPark === null ? elapsed : Math.min(state.bestPark, elapsed);
+    state.celebration = { x: state.rig.car.x, y: state.rig.car.y, at: performance.now() };
+    const clean = state.legCollisions === 0;
+    chooseTarget();
+    const label = state.world.lots[state.target].label;
+    toast(`${clean ? 'Beautifully parked' : 'Park complete'}  +1  ·  Next: ${label}`);
+  }
+}
+
+function setText(element, text) { if (element.textContent !== String(text)) element.textContent = text; }
+function updateHUD() {
+  const { car, trailer } = state.rig;
+  const time = Math.ceil(state.remaining), progress = Math.min(1, state.parkedHold / HOLD_TIME);
+  setText(ui.score, String(state.score).padStart(2, '0'));
+  setText(ui.time, `${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`);
+  ui.clock.classList.toggle('urgent', time <= 10);
+  ui['time-fill'].style.transform = `scaleX(${state.remaining / roundDuration()})`;
+  // 64 world units represent a compact car roughly 4.5 metres long.
+  setText(ui.speed, Math.round(Math.abs(car.speed) * .253));
+  setText(ui.gear, car.speed > .5 ? 'D' : car.speed < -.5 ? 'R' : 'N');
+  ui['brake-indicator'].classList.toggle('active', car.braking);
+  ui['parking-fill'].style.transform = `scaleX(${progress})`;
+  const percent = String(Math.round(progress * 100));
+  if (ui['parking-progress'].getAttribute('aria-valuenow') !== percent) ui['parking-progress'].setAttribute('aria-valuenow', percent);
+  const lot = state.world.lots[state.target], result = physics.parking(state.rig, lot);
+  let assist = 'FIND THE GREEN BAY';
+  if (state.phase === 'menu') assist = 'GET READY';
+  else if (state.phase === 'paused') assist = 'DRIVE PAUSED';
+  else if (state.phase === 'finished') assist = 'ROUND COMPLETE';
+  else if (result.ready) assist = 'HOLD STILL. LOOKING GOOD.';
+  else if (result.inside) assist = 'SPACE TO STOP';
+  else if (trailer && Math.abs(physics.wrapAngle(car.a - trailer.a)) > 1) assist = 'PULL FORWARD TO STRAIGHTEN';
+  else if (Math.hypot(car.x - lot.x - lot.w / 2, car.y - lot.y - lot.h / 2) < lot.h / 2 + 50) assist = trailer ? 'GET BOTH FULLY INSIDE' : 'EASE INTO POSITION';
+  setText(ui['assist-text'], assist);
+  setText(ui['mission-text'], state.phase === 'playing' ? `Park ${trailer ? 'car + trailer' : 'your car'} in bay ${lot.label}. Stop inside the lines.` : state.phase === 'paused' ? 'Drive paused. Your time and position are safe.' : state.phase === 'finished' ? 'Round complete. A little better with every drive.' : 'Your next perfect park starts here.');
+}
+
+function loop(now) {
+  frameId = null;
+  if (state.phase !== 'playing') return;
+  const elapsed = Math.max(0, (now - previousTime) / 1000);
+  previousTime = now;
+  // Freeze after suspension or a long stall instead of teleporting through walls.
+  if (elapsed > .5) { pause('focus'); return; }
+  accumulator += elapsed;
+  while (accumulator >= physics.STEP && state.phase === 'playing') {
+    update(physics.STEP); accumulator -= physics.STEP;
+  }
+  updateHUD(); scene.draw(state, now); scheduleFrame();
+}
+
+function normaliseKey(event) {
+  return event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar' ? 'Space' : event.key;
+}
+
+addEventListener('keydown', event => {
+  const key = normaliseKey(event);
+  // Keep the modal usable with just the keyboard, including at small heights.
+  if (!$('overlay').hidden && key === 'Tab') {
+    const controls = [...$('overlay').querySelectorAll('button, input, select')].filter(el => !el.hidden && !el.disabled);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) { event.preventDefault(); first.focus(); }
+    return;
+  }
+  if (key === 'Escape' && !event.repeat) {
+    event.preventDefault();
+    if (state.phase === 'playing') pause();
+    else if (state.phase === 'paused') resume();
+    return;
+  }
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const editable = event.target?.closest('input, select, textarea, button, [contenteditable="true"], summary, a');
+  if (editable) return;
+  if (key.toLowerCase() === 'r' && !event.repeat) { event.preventDefault(); start(); return; }
+  if (state.phase !== 'playing') return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(key)) {
+    event.preventDefault(); keys.add(key);
+  }
+});
+addEventListener('keyup', event => keys.delete(normaliseKey(event)));
+addEventListener('blur', () => { keys.clear(); pause('focus'); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { keys.clear(); pause('focus'); } });
+$('start').addEventListener('click', start);
+$('resume').addEventListener('click', resume);
+$('menu').addEventListener('click', () => pause());
+$('mode').addEventListener('change', () => {
+  if (state.phase === 'menu') configure();
+  updateModeHelp(); savePreferences();
+});
+$('color').addEventListener('input', () => { state.color = $('color').value; savePreferences(); scene.draw(state, performance.now()); });
+
+try {
+  const preferences = JSON.parse(localStorage.getItem('park_preferences_v1'));
+  if (preferences && Object.hasOwn(modeNames, preferences.mode)) $('mode').value = preferences.mode;
+  if (preferences && /^#[a-f0-9]{6}$/i.test(preferences.color)) $('color').value = preferences.color;
+} catch { /* Defaults also work with blocked storage. */ }
+configure();
+canvas.inert = true;
+new ResizeObserver(() => { scene.resize(); scene.draw(state, performance.now()); }).observe($('board-wrap'));
