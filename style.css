@@ -128,3 +128,10 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
   .controls { gap: 10px 15px; font-size: 9px; } .history { padding-top: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+/* Shared collection navigation inside the game menu. */
+.card .games-navigation { margin-top: 18px; border-top: 1px solid #ffffff20; padding-top: 15px; }
+.card .games-navigation a { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 1px solid #ffffff30; border-radius: 8px; color: #eef5ed; background: #ffffff08; text-decoration: none; font-size: 13px; font-weight: 600; }
+.card .games-navigation a:hover { background: #ffffff16; border-color: #ffffff60; }
+.card .menu-credit { margin-top: 14px; color: #aab9bc; text-align: center; font-size: 10px; line-height: 1.6; }
+.card .menu-credit a { color: #d6e1df; text-underline-offset: 3px; }

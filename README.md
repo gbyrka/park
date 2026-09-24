@@ -66,4 +66,4 @@ node tests/browser.cjs
 
 All parking-lot and vehicle artwork is drawn locally in Canvas. The detailed static background is cached; display-density scaling keeps the board crisp. The full board fits proportionally in its frame. Menus scroll internally in short windows, with a keyboard focus loop and visible focus states. Reduced-motion preferences disable pulsing goals and celebration rings.
 
-The MoD-IT logo links to Grzegorz Byrka on LinkedIn. The original artwork is displayed with CSS colour inversion and blending for the dark theme. Keep the original image in `assets` when publishing.
+The MoD-IT logo and the menu's Browse all games link open the games collection at `../games/`. The menu footer credits Grzegorz Byrka and links to his LinkedIn profile. The original artwork is displayed with CSS colour inversion and blending for the dark theme. Keep the original image in `assets` when publishing.

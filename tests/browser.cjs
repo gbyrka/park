@@ -127,7 +127,7 @@ const url = process.env.PARK_URL || 'http://127.0.0.1:8765';
     await page.keyboard.press('Escape');
     await page.keyboard.press('Tab');
     assert.ok(await page.locator('#overlay').evaluate(el => el.contains(document.activeElement)), 'modal contains keyboard focus');
-    await page.locator('#start').focus(); await page.keyboard.press('Tab');
+    await page.locator('.menu-credit a').focus(); await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'mode', 'Tab wraps inside dialog');
     console.log('PASS: full trailer containment, trailer scoring, distinct record, modal keyboard navigation');
 

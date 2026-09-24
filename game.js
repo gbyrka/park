@@ -270,7 +270,7 @@ addEventListener('keydown', event => {
   const key = normaliseKey(event);
   // Keep the modal usable with just the keyboard, including at small heights.
   if (!$('overlay').hidden && key === 'Tab') {
-    const controls = [...$('overlay').querySelectorAll('button, input, select')].filter(el => !el.hidden && !el.disabled);
+    const controls = [...$('overlay').querySelectorAll('button, input, select, a[href]')].filter(el => !el.hidden && !el.disabled);
     const first = controls[0], last = controls[controls.length - 1];
     if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) { event.preventDefault(); first.focus(); }
