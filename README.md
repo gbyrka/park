@@ -42,7 +42,7 @@ Serve this entire folder over HTTP or HTTPS. Cookies are unreliable with `file:/
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8765. For GitHub Pages, publish `index.html`, `style.css`, `game.js`, **`physics.js`**, **`scene.js`**, and the `assets` folder together. No build is needed. Google Analytics uses the shared games stream `G-WTPHWDLQ7K`.
+Open http://127.0.0.1:8765. For GitHub Pages, publish `index.html`, `style.css`, `ads.css`, `monetization.js`, `game.js`, **`physics.js`**, **`scene.js`**, and the `assets` folder together. No build is needed. Google Analytics uses the shared games stream `G-WTPHWDLQ7K` and waits for Google CMP permission. The responsive footer ad is outside the viewport-sized app, separated by 150px. See the sibling games README for the required AdSense Consent Mode settings.
 
 ## Development checks
 
