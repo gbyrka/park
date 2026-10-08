@@ -5,9 +5,9 @@
   <script data-site-https>
     (() => {
       const { hostname, protocol, pathname, search, hash } = location;
-      const publicHosts = ['gbyrka.games', 'www.gbyrka.games', 'gbyrka.github.io'];
-      if (publicHosts.includes(hostname) && (protocol !== 'https:' || hostname !== 'gbyrka.games')) {
-        location.replace(`https://gbyrka.games${pathname}${search}${hash}`);
+      const publicHosts = ['mod-it.games', 'www.mod-it.games', 'gbyrka.github.io'];
+      if (publicHosts.includes(hostname) && (protocol !== 'https:' || hostname !== 'mod-it.games')) {
+        location.replace(`https://mod-it.games${pathname}${search}${hash}`);
       }
     })();
   </script>
