@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script data-site-https>
+    (() => {
+      const { hostname, protocol, pathname, search, hash } = location;
+      const publicHosts = ['gbyrka.games', 'www.gbyrka.games', 'gbyrka.github.io'];
+      if (publicHosts.includes(hostname) && (protocol !== 'https:' || hostname !== 'gbyrka.games')) {
+        location.replace(`https://gbyrka.games${pathname}${search}${hash}`);
+      }
+    })();
+  </script>
   <meta name="google-adsense-account" content="ca-pub-3806610967714181">
   <link rel="stylesheet" href="./ads.css?v=adlaunch1">
   <script src="./monetization.js?v=adlaunch1"></script>
